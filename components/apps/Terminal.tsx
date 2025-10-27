@@ -137,7 +137,7 @@ const Terminal: React.FC = () => {
             ))}
             <div ref={endOfHistoryRef} />
             <div className="flex">
-                <span className="text-green-400">{cwd}></span>
+                <span className="text-green-400">{`${cwd}> `}</span>
                 <input
                     id="terminal-input"
                     type="text"
