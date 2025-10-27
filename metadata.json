@@ -1,0 +1,5 @@
+{
+  "name": "React OS",
+  "description": "A simple desktop operating system simulator built with React and Tailwind CSS, featuring a windowing system, taskbar, start menu, and several functional applications including a file explorer, text editor, calculator, settings, and a Gemini-powered AI chatbot.",
+  "requestFramePermissions": []
+}
