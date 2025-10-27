@@ -107,8 +107,7 @@ const desktopReducer = (state: DesktopState, action: Action): DesktopState => {
     case 'CREATE_FOLDER': {
         const { parentPath, folderName } = action.payload;
         if (!folderName) return state;
-
-        // FIX: Explicitly type `newFileSystem` to prevent `rootNode` from being inferred as `unknown`.
+        
         const newFileSystem: FileSystem = JSON.parse(JSON.stringify(state.fileSystem));
         
         const findParent = (node: FileSystemNode, path: string): FileSystemNode | null => {
@@ -163,22 +162,40 @@ const DesktopContext = createContext<{ state: DesktopState; dispatch: React.Disp
 
 // PROVIDER
 const getInitialState = (): DesktopState => {
-    try {
-        const savedState = localStorage.getItem('desktopState');
-        if (savedState) {
-            const parsedState = JSON.parse(savedState);
-            const maxZIndex = Math.max(...parsedState.windows.map((w: WindowState) => w.zIndex), 10);
-            return { ...parsedState, nextZIndex: maxZIndex + 1 };
-        }
-    } catch (error) {
-        console.error("Failed to load state from localStorage", error);
-    }
-    return {
+    const defaultState: DesktopState = {
         windows: [],
         settings: { theme: 'dark', wallpaper: 'bg-zinc-900' },
         fileSystem: INITIAL_FILESYSTEM,
         nextZIndex: 10,
     };
+
+    try {
+        const savedState = localStorage.getItem('desktopState');
+        if (savedState) {
+            const parsedState = JSON.parse(savedState);
+            
+            const windows = Array.isArray(parsedState.windows) ? parsedState.windows : defaultState.windows;
+            const settings = parsedState.settings ? { ...defaultState.settings, ...parsedState.settings } : defaultState.settings;
+            const fileSystem = parsedState.fileSystem ? parsedState.fileSystem : defaultState.fileSystem;
+
+            const maxZIndex = windows.length > 0
+                ? Math.max(...windows.map((w: WindowState) => w.zIndex || 0))
+                : 9;
+                
+            return {
+                windows,
+                settings,
+                fileSystem,
+                nextZIndex: maxZIndex + 1,
+            };
+        }
+    } catch (error) {
+        console.error("Failed to load or parse state from localStorage, using default state.", error);
+        // If parsing fails, clear the corrupted state to prevent future errors
+        localStorage.removeItem('desktopState');
+    }
+    
+    return defaultState;
 };
 
 export const DesktopProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -186,7 +203,12 @@ export const DesktopProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   useEffect(() => {
     try {
-        localStorage.setItem('desktopState', JSON.stringify(state));
+        // Filter out any potentially problematic properties before saving
+        const stateToSave = {
+            ...state,
+            // You can add filtering here if needed, e.g., ensure windows is an array
+        };
+        localStorage.setItem('desktopState', JSON.stringify(stateToSave));
     } catch (error) {
         console.error("Failed to save state to localStorage", error);
     }

@@ -1,20 +1,23 @@
-
 import { GoogleGenAI } from "@google/genai";
 import type { GroundingSource } from '../types';
 
-const API_KEY = process.env.API_KEY;
+let ai: GoogleGenAI | null = null;
 
-if (!API_KEY) {
-  // This is a placeholder for environments where API_KEY might not be set.
-  // In the target environment, this variable is expected to be available.
-  console.warn("API_KEY environment variable not set. Gemini API calls will fail.");
+const getAiClient = (): GoogleGenAI => {
+    const API_KEY = process.env.API_KEY;
+    if (!API_KEY) {
+        throw new Error("API_KEY environment variable not set. Gemini API calls will fail.");
+    }
+    if (!ai) {
+        ai = new GoogleGenAI({ apiKey: API_KEY });
+    }
+    return ai;
 }
-
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
 
 export const getChatResponse = async (prompt: string): Promise<{ text: string, sources: GroundingSource[] }> => {
   try {
-    const response = await ai.models.generateContent({
+    const client = getAiClient();
+    const response = await client.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
         config: {
@@ -36,6 +39,7 @@ export const getChatResponse = async (prompt: string): Promise<{ text: string, s
     return { text, sources: uniqueSources };
   } catch (error) {
     console.error("Error getting chat response from Gemini:", error);
-    return { text: "Sorry, I encountered an error. Please check the console for details.", sources: [] };
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    return { text: `Sorry, I encountered an error. Please check the console for details.\n\nDetails: ${errorMessage}`, sources: [] };
   }
 };
