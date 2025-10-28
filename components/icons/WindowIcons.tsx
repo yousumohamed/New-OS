@@ -1,22 +1,30 @@
-
 import React from 'react';
 
-const iconClass = "w-4 h-4";
+const iconClass = "w-5 h-5";
 
 export const MinimizeIcon: React.FC = () => (
-    <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor"><path d="M20 14H4v-4h16v4z"/></svg>
+    <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 13H5v-2h14v2z"/>
+    </svg>
 );
 
 export const MaximizeIcon: React.FC = () => (
-    <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v16H4V4zm2 2v12h12V6H6z"/></svg>
+    <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 3h18v18H3z"/>
+    </svg>
 );
 
 export const RestoreIcon: React.FC = () => (
-    <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h12v12H4V8zm2 2v8h8v-8H6z m14-6v12h-4v-2h2V4H8v2h2V2h12z"/></svg>
+    <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M8 8h13v13H8z M3 16V3h13"/>
+    </svg>
 );
 
 export const CloseIcon: React.FC = () => (
-    <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+    <svg className={iconClass} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
 );
 
 // Real-world browser navigation icons

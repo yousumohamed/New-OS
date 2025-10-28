@@ -29,6 +29,7 @@ export type FileSystemNode = {
   content?: string;
   children?: { [key: string]: FileSystemNode };
   path: string;
+  originalPath?: string; // For Recycle Bin restore functionality
 };
 
 export type FileSystem = { [key: string]: FileSystemNode };
@@ -45,11 +46,23 @@ export interface GroundingSource {
     title: string;
 }
 
+export type ChatMessagePart = 
+    | { type: 'text'; text: string }
+    | { type: 'image'; data: string; mimeType: string }; // data is base64 string
+
 export interface ChatMessage {
     sender: 'user' | 'bot';
-    text: string;
+    parts: ChatMessagePart[];
     sources?: GroundingSource[];
+    isLoading?: boolean;
 }
+
+export interface ChatSession {
+    id: string;
+    title: string;
+    messages: ChatMessage[];
+}
+
 
 export interface ContextMenuItem {
     label: string;

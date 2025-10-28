@@ -64,30 +64,40 @@ const TextEditor: React.FC<TextEditorProps> = ({ windowId, data }) => {
 
     useEffect(() => {
         if (fileId) {
-            const fileContent = findFileContent(fileSystem, fileId);
-            setContent(fileContent || '');
+            const fileContent = findFileContent(fileSystem, fileId) || '';
+            let decodedContent = fileContent;
+            
+            // Decode if content is a Base64 data URL
+            if (fileContent.startsWith('data:')) {
+                try {
+                    decodedContent = atob(fileContent.split(',')[1]);
+                } catch (e) {
+                    console.error("Failed to decode Base64 content:", e);
+                    decodedContent = 'Error: Could not read the contents of this file.';
+                }
+            }
+
+            setContent(decodedContent);
             dispatch({ type: 'SET_WINDOW_TITLE', payload: { windowId, title: data?.fileName || 'Text Editor' } });
         } else {
             setContent('');
             dispatch({ type: 'SET_WINDOW_TITLE', payload: { windowId, title: 'Untitled Note' } });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fileId, fileSystem, windowId, data?.fileName]);
+    }, [fileId, fileSystem, windowId, data?.fileName, dispatch]);
     
     useEffect(() => {
-        if (!isSaved) {
-            const currentTitle = state.windows.find(w => w.id === windowId)?.title || '';
-            if (!currentTitle.endsWith('*')) {
-                dispatch({ type: 'SET_WINDOW_TITLE', payload: { windowId, title: `${currentTitle}*` } });
-            }
-        } else {
-             const currentTitle = state.windows.find(w => w.id === windowId)?.title || '';
-             if (currentTitle.endsWith('*')) {
-                dispatch({ type: 'SET_WINDOW_TITLE', payload: { windowId, title: currentTitle.slice(0, -1) } });
-            }
+        const currentWindow = state.windows.find(w => w.id === windowId);
+        if (!currentWindow) return;
+        
+        const currentTitle = currentWindow.title || '';
+        const hasAsterisk = currentTitle.endsWith('*');
+
+        if (!isSaved && !hasAsterisk) {
+            dispatch({ type: 'SET_WINDOW_TITLE', payload: { windowId, title: `${currentTitle}*` } });
+        } else if (isSaved && hasAsterisk) {
+            dispatch({ type: 'SET_WINDOW_TITLE', payload: { windowId, title: currentTitle.slice(0, -1) } });
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isSaved, windowId, state.windows]);
+    }, [isSaved, windowId, state.windows, dispatch]);
 
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setContent(e.target.value);
@@ -100,7 +110,22 @@ const TextEditor: React.FC<TextEditorProps> = ({ windowId, data }) => {
             return;
         }
         if (!isSaved) {
-            const newFileSystem = findAndUpdateFile(fileSystem, fileId, content);
+            const originalContent = findFileContent(fileSystem, fileId) || '';
+            let contentToSave = content;
+
+            // If the original file was a data URL, save it back in the same format
+            if (originalContent.startsWith('data:')) {
+                try {
+                    const mimeType = originalContent.match(/^data:([^;]+);/)?.[1] || 'text/plain';
+                    contentToSave = `data:${mimeType};base64,${btoa(content)}`;
+                } catch (e) {
+                    console.error("Failed to encode content to Base64:", e);
+                    alert("Error saving file. Could not encode content.");
+                    return;
+                }
+            }
+
+            const newFileSystem = findAndUpdateFile(fileSystem, fileId, contentToSave);
             dispatch({ type: 'UPDATE_FILESYSTEM', payload: newFileSystem });
             setIsSaved(true);
         }

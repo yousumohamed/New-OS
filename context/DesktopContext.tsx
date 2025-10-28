@@ -7,6 +7,8 @@ interface DesktopState {
   windows: WindowState[];
   settings: Settings;
   fileSystem: FileSystem;
+  recycleBin: FileSystemNode[];
+  pinnedAppIds: string[];
   nextZIndex: number;
 }
 
@@ -22,9 +24,36 @@ type Action =
   | { type: 'UPDATE_SETTINGS'; payload: Partial<Settings> }
   | { type: 'UPDATE_FILESYSTEM'; payload: FileSystem }
   | { type: 'CREATE_FOLDER'; payload: { parentPath: string; folderName: string } }
-  | { type: 'SET_WINDOW_TITLE'; payload: { windowId: string; title: string } };
+  | { type: 'DELETE_NODE'; payload: { path: string } } // Kept for potential future use
+  | { type: 'SET_WINDOW_TITLE'; payload: { windowId: string; title: string } }
+  | { type: 'MOVE_TO_RECYCLE_BIN'; payload: { path: string } }
+  | { type: 'RESTORE_NODE'; payload: { nodeId: string } }
+  | { type: 'PERMANENTLY_DELETE_NODE'; payload: { nodeId: string } }
+  | { type: 'EMPTY_RECYCLE_BIN' }
+  | { type: 'PIN_APP_TO_TASKBAR'; payload: { appId: string } }
+  | { type: 'UNPIN_APP_FROM_TASKBAR'; payload: { appId: string } }
+  | { type: 'UPLOAD_FILE'; payload: { parentPath: string; fileName: string; fileContent: string } };
 
 const getAppById = (appId: string): AppDef | undefined => APPS.find(app => app.id === appId);
+
+const findNodeByPath = (fs: FileSystem, path: string): FileSystemNode | null => {
+    const search = (node: FileSystemNode, currentPath: string): FileSystemNode | null => {
+        if (node.path === currentPath) return node;
+        if (node.children) {
+            for (const child of Object.values(node.children)) {
+                const found = search(child, currentPath);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    for (const rootNode of Object.values(fs)) {
+        const result = search(rootNode, path);
+        if (result) return result;
+    }
+    return null;
+}
 
 // REDUCER
 const desktopReducer = (state: DesktopState, action: Action): DesktopState => {
@@ -108,26 +137,10 @@ const desktopReducer = (state: DesktopState, action: Action): DesktopState => {
         const { parentPath, folderName } = action.payload;
         if (!folderName) return state;
         
-        const newFileSystem: FileSystem = JSON.parse(JSON.stringify(state.fileSystem));
-        
-        const findParent = (node: FileSystemNode, path: string): FileSystemNode | null => {
-            if (node.path === path && node.type === 'folder') return node;
-            if (node.children) {
-                for (const child of Object.values(node.children)) {
-                    const found = findParent(child, path);
-                    if (found) return found;
-                }
-            }
-            return null;
-        }
+        const newFileSystem = JSON.parse(JSON.stringify(state.fileSystem));
+        const parentNode = findNodeByPath(newFileSystem, parentPath);
 
-        let parentNode: FileSystemNode | null = null;
-        for (const rootNode of Object.values(newFileSystem)) {
-             parentNode = findParent(rootNode, parentPath);
-             if (parentNode) break;
-        }
-
-        if (parentNode && parentNode.children) {
+        if (parentNode && parentNode.type === 'folder' && parentNode.children) {
             if (parentNode.children[folderName]) {
                 alert(`A folder named "${folderName}" already exists.`);
                 return state;
@@ -143,6 +156,108 @@ const desktopReducer = (state: DesktopState, action: Action): DesktopState => {
             return { ...state, fileSystem: newFileSystem };
         }
         return state;
+    }
+
+    case 'UPLOAD_FILE': {
+        const { parentPath, fileName, fileContent } = action.payload;
+        if (!fileName || !fileContent) return state;
+
+        const newFileSystem = JSON.parse(JSON.stringify(state.fileSystem));
+        const parentNode = findNodeByPath(newFileSystem, parentPath);
+
+        if (parentNode && parentNode.type === 'folder' && parentNode.children) {
+            if (parentNode.children[fileName]) {
+                alert(`A file named "${fileName}" already exists in this location.`);
+                return state;
+            }
+            const newPath = `${parentNode.path === 'C:' ? 'C:' : parentNode.path}/${fileName}`;
+            parentNode.children[fileName] = {
+                id: newPath,
+                name: fileName,
+                type: 'file',
+                path: newPath,
+                content: fileContent,
+            };
+            return { ...state, fileSystem: newFileSystem };
+        }
+        return state;
+    }
+
+    case 'MOVE_TO_RECYCLE_BIN': {
+      const { path } = action.payload;
+      const pathParts = path.split('/');
+      if (pathParts.length < 2) return state; // Can't delete C: drive
+
+      const newFileSystem = JSON.parse(JSON.stringify(state.fileSystem));
+      const childName = pathParts.pop()!;
+      const parentPath = pathParts.length === 1 ? 'C:' : pathParts.join('/');
+      const parentNode = findNodeByPath(newFileSystem, parentPath);
+      
+      if (parentNode && parentNode.children && parentNode.children[childName]) {
+        const nodeToDelete = { ...parentNode.children[childName], originalPath: parentNode.children[childName].path };
+        delete parentNode.children[childName];
+        
+        return { 
+          ...state, 
+          fileSystem: newFileSystem,
+          recycleBin: [...state.recycleBin, nodeToDelete],
+        };
+      }
+      return state;
+    }
+
+    case 'RESTORE_NODE': {
+      const { nodeId } = action.payload;
+      const nodeToRestore = state.recycleBin.find(node => node.id === nodeId);
+      if (!nodeToRestore || !nodeToRestore.originalPath) return state;
+
+      const newFileSystem = JSON.parse(JSON.stringify(state.fileSystem));
+      const pathParts = nodeToRestore.originalPath.split('/');
+      const childName = pathParts.pop()!;
+      const parentPath = pathParts.length === 1 ? 'C:' : pathParts.join('/');
+      const parentNode = findNodeByPath(newFileSystem, parentPath);
+
+      if (parentNode && parentNode.children) {
+        if (parentNode.children[childName]) {
+            alert(`An item named "${childName}" already exists in the original location.`);
+            return state;
+        }
+        const { originalPath, ...restoredNode } = nodeToRestore;
+        parentNode.children[childName] = restoredNode;
+        
+        return {
+          ...state,
+          fileSystem: newFileSystem,
+          recycleBin: state.recycleBin.filter(node => node.id !== nodeId),
+        };
+      }
+      return state;
+    }
+    
+    case 'PERMANENTLY_DELETE_NODE':
+      return {
+        ...state,
+        recycleBin: state.recycleBin.filter(node => node.id !== action.payload.nodeId),
+      };
+
+    case 'EMPTY_RECYCLE_BIN':
+      return {
+        ...state,
+        recycleBin: [],
+      };
+      
+    case 'PIN_APP_TO_TASKBAR': {
+        if (state.pinnedAppIds.includes(action.payload.appId)) return state;
+        return {
+            ...state,
+            pinnedAppIds: [...state.pinnedAppIds, action.payload.appId],
+        };
+    }
+    case 'UNPIN_APP_FROM_TASKBAR': {
+        return {
+            ...state,
+            pinnedAppIds: state.pinnedAppIds.filter(id => id !== action.payload.appId),
+        };
     }
 
     case 'SET_WINDOW_TITLE':
@@ -162,10 +277,14 @@ const DesktopContext = createContext<{ state: DesktopState; dispatch: React.Disp
 
 // PROVIDER
 const getInitialState = (): DesktopState => {
+    const defaultPinned = APPS.filter(app => app.isPinned).map(app => app.id);
+    
     const defaultState: DesktopState = {
         windows: [],
         settings: { theme: 'dark', wallpaper: 'bg-zinc-900' },
         fileSystem: INITIAL_FILESYSTEM,
+        recycleBin: [],
+        pinnedAppIds: defaultPinned,
         nextZIndex: 10,
     };
 
@@ -177,6 +296,9 @@ const getInitialState = (): DesktopState => {
             const windows = Array.isArray(parsedState.windows) ? parsedState.windows : defaultState.windows;
             const settings = parsedState.settings ? { ...defaultState.settings, ...parsedState.settings } : defaultState.settings;
             const fileSystem = parsedState.fileSystem ? parsedState.fileSystem : defaultState.fileSystem;
+            const recycleBin = Array.isArray(parsedState.recycleBin) ? parsedState.recycleBin : defaultState.recycleBin;
+            const pinnedAppIds = Array.isArray(parsedState.pinnedAppIds) ? parsedState.pinnedAppIds : defaultState.pinnedAppIds;
+
 
             const maxZIndex = windows.length > 0
                 ? Math.max(...windows.map((w: WindowState) => w.zIndex || 0))
@@ -186,12 +308,13 @@ const getInitialState = (): DesktopState => {
                 windows,
                 settings,
                 fileSystem,
+                recycleBin,
+                pinnedAppIds,
                 nextZIndex: maxZIndex + 1,
             };
         }
     } catch (error) {
         console.error("Failed to load or parse state from localStorage, using default state.", error);
-        // If parsing fails, clear the corrupted state to prevent future errors
         localStorage.removeItem('desktopState');
     }
     
@@ -203,11 +326,7 @@ export const DesktopProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   useEffect(() => {
     try {
-        // Filter out any potentially problematic properties before saving
-        const stateToSave = {
-            ...state,
-            // You can add filtering here if needed, e.g., ensure windows is an array
-        };
+        const stateToSave = { ...state };
         localStorage.setItem('desktopState', JSON.stringify(stateToSave));
     } catch (error) {
         console.error("Failed to save state to localStorage", error);

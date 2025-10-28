@@ -4,9 +4,10 @@ interface DesktopIconProps {
     label: string;
     icon: React.FC<{ className?: string }>;
     onDoubleClick: () => void;
+    onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-const DesktopIcon: React.FC<DesktopIconProps> = ({ label, icon: Icon, onDoubleClick }) => {
+const DesktopIcon: React.FC<DesktopIconProps> = ({ label, icon: Icon, onDoubleClick, onContextMenu }) => {
     const [isFocused, setIsFocused] = useState(false);
 
     const handleClick = () => {
@@ -20,6 +21,7 @@ const DesktopIcon: React.FC<DesktopIconProps> = ({ label, icon: Icon, onDoubleCl
             className="flex flex-col items-center w-24 h-24 p-2 rounded"
             onClick={handleClick}
             onDoubleClick={onDoubleClick}
+            onContextMenu={onContextMenu}
         >
             <div className={`p-1 rounded ${isFocused ? 'bg-blue-os/30 border border-blue-os/50' : 'border border-transparent'}`}>
                 <Icon className="w-12 h-12" />
