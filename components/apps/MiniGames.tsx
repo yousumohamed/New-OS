@@ -2,8 +2,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HelpIcon, AppleIcon, FlagIcon, MineIcon, SnakeIcon, TicTacToeIcon, MemoryMatchIcon, HangmanIcon, MinesweeperIcon, TwentyFortyEightIcon, StartIcon, EditorIcon, SettingsIcon, CalculatorIcon, ExplorerIcon, BrowserIcon, RecycleBinIcon, TerminalIcon, VideoPlayerIcon, GeminiIcon } from '../icons/AppIcons';
 
+interface MiniGamesProps {
+    windowId: string;
+    data?: any;
+}
+
 // --- Main Component & Game Launcher ---
-const MiniGames: React.FC = () => {
+const MiniGames: React.FC<MiniGamesProps> = () => {
     const [activeGame, setActiveGame] = useState<string | null>(null);
 
     const games = [
@@ -420,7 +425,7 @@ const MinesweeperGame: React.FC = () => {
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const [flagCount, setFlagCount] = useState(0);
     const [time, setTime] = useState(0);
-    const timerRef = useRef<number | undefined>();
+    const timerRef = useRef<number | undefined>(undefined);
 
     const setupBoard = useCallback((startRow: number, startCol: number, currentLevel: Level) => {
         const { width, height, mines } = currentLevel;

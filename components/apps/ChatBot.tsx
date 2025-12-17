@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { ChatSession, ChatMessage, ChatMessagePart } from '../../types';
 import { getChatResponse, generateImage } from '../../services/geminiService';
@@ -222,13 +223,5 @@ const ChatBot: React.FC = () => {
     </div>
   );
 };
-
-// Simple UUID generator
-const uuidv4 = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16 | 0, v = c === 'x' ? r : ((r & 0x3) | 0x8);
-        return v.toString(16);
-    });
-}
 
 export default ChatBot;
